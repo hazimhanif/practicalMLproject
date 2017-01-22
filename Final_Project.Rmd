@@ -1,0 +1,146 @@
+---
+title: "Practical Machine Learning Final Project"
+author: "Hazim Hanif"
+date: "1/23/2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+set.seed(100)
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+library(party)
+```
+
+# Introduction
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Data Source
+
+* The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+* The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+## Fetching Data
+
+Data are downloada and load into R.
+
+```{r fetchData, echo=TRUE}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainUrl),na.strings = c("NA",""))
+testing <- read.csv(url(testUrl),na.strings = c("NA",""))
+nrow(training)
+ncol(training)
+nrow(testing)
+ncol(testing)
+```
+
+The dataset for training consist of:
+* 19622 observations
+* 160 columns
+
+The dataset for training consist of:
+* 20 observations
+* 160 columns
+
+## Data Cleaning and Preprocessing
+
+The data which has any missing values are removed from the training and the testing set.
+
+```{r clean, echo=TRUE}
+train_clean<-training[, colSums(is.na(training)) == 0]
+test<-testing[, colSums(is.na(testing)) == 0]
+```
+
+Any column that have NA value are removed. The cleaning process results in reduction of columns from 160 columns into 60 columns in both 'train' data and 'test' data. This will surely give an edge during the ML process since the data are now clean. 
+
+
+## Data splitting
+
+Before we proceed to model creation and prediction, we need to split the 'train' dataset into 2 which are the real training set and the validation set. This is to compute the 'out-of-sample' error. For the data splitting, we use a splitting ratio of 70% for training and 30% validation set.
+
+```{r split, echo=TRUE}
+trainPartition <- createDataPartition(train_clean$classe, p = 0.7, list = FALSE)
+train <- train_clean[trainPartition, ]
+valid <- train_clean[-trainPartition, ]
+```
+
+## Algorithms & Method
+
+* In this project, we will apply two machine learning algorithms namely Decision Trees and Random Forest. With the application of these 2 machine learning algorithms, the comparison of the performance will be shown.
+* As for the training method, we will use 5-fold Cross-Validation (CV) method. 
+
+## Training using Decision Tree
+
+We will use the 'party' package to use the decision tree algorithms.
+
+```{r trainDT, echo=TRUE}
+control <- trainControl(method = "cv", number = 5)
+model_ctree <- train(classe ~ ., data = train, method = "ctree", trControl = control)
+print(model_ctree, digits = 5)
+plot(model_ctree$finalModel)
+```
+
+The model has been created by CV method using the 'train' data. Now, we will predict by using the 'valid' dataset.
+
+```{r testDT, echo=TRUE}
+predict_ctree <- predict(model_ctree, valid)
+confusionMatrix(valid$classe, predict_ctree)
+```
+
+From the prediction results using the validation set, we get accuracy: `0.9995`. So, the out of sample error is `0.0005` for Decision Tree.
+
+## Training using Random Forest
+
+Now, we will use the Random Forest algorithm for the model creation and prediction.
+
+
+```{r trainRF, echo=TRUE}
+control <- trainControl(method = "cv", number = 5)
+model_rf <- train(classe ~ ., data = train, method = "rf", trControl = control)
+print(model_rf, digits = 5)
+plot(model_rf$finalModel)
+```
+
+The model has been created by CV method using the 'train' data. Now, we will predict by using the 'valid' dataset.
+
+```{r testRF, echo=TRUE}
+predict_rf <- predict(model_rf, valid)
+confusionMatrix(valid$classe, predict_rf)
+```
+
+From the prediction results using the validation set, we get accuracy: `0.9998`. So, the out of sample error is `0.0002` for Random Forest.
+
+## Model Selection
+
+With the prediction above, we can see the accuracy of both models are:
+* Decsion Tree model: 
+* Random Forest model:
+
+Based on the results of the prediction on the validation dataset above, we will choose Random Forest model as our prediction model for this project.
+
+## Prediction on Testing Dataset
+
+Finally, we will perform prediction by using the chosen prediction model which is the Random Forest model.
+
+```{r finalPred, echo=TRUE}
+predict_final <- predict(model_rf, test)
+predict_final
+```
+
